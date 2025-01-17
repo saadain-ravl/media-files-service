@@ -13,6 +13,7 @@ fi
 > "${ENTANGLEMENT_LOG/#\~/#HOME}"
 
 echo "Debug: entanglement_log is set to '$ENTANGLEMENT_LOG'"
+
 # Function to display configured locations
 display_locations() {
     echo "Configured Locations:"
@@ -92,13 +93,38 @@ process_backup() {
     fi
 }
 
-# Function to restore a backup (placeholder for implementation)
 restore() {
-    echo "Restore functionality is not implemented yet."
+    if [ -z "$LINE" ]; then
+        echo "Starting restore for all locations..."
+        while IFS= read -r line; do
+            process_restore "$line"
+        done < "${CONFIG_FILE/#\~/$HOME}"
+    else
+        echo "Starting restore for location line $LINE..."
+        LOCATION=$(sed -n "${LINE}p" "${CONFIG_FILE/#\~/$HOME}")
+        process_restore "$LOCATION"
+    fi
 }
+
+process_restore() {
+    IFS=' ' read -r dest src <<< "$1"
+    echo "Restoring from $src to $dest..."
+    if [ -z "$src" ] || [ -z "$dest" ]; then
+        echo "Empty source or destination specified."
+        return 1
+    fi
+    rsync -avz --progress "$src" "$dest"
+    if [ $? -ne 0 ]; then
+        echo "Restore failed for $src to $dest."
+    else
+        echo "Restore completed successfully for $src to $dest."
+    fi
+}
+
 
 # Parse command-line arguments
 LINE=""
+MODE=""
 while getopts ":BL:R:" opt; do
     case $opt in
         B) MODE="backup" ;;
